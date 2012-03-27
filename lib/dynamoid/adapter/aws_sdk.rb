@@ -112,14 +112,16 @@ module Dynamoid
       # @return [Hash] a hash representing the raw item in DynamoDB
       #
       # @since 0.2.0
-      def get_item(table_name, key, range_key = nil)
+      def get_item(table_name, key, options = {})
+        range_key = options.delete(:range_key)
+
         table = @@connection.tables[table_name]
         table.load_schema
         result = if table.composite_key?
           table.items.at(key, range_key)
         else
           table.items[key]
-        end.attributes.to_h
+        end.attributes.to_h(options)
         if result.empty?
           nil
         else

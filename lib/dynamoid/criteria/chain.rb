@@ -6,7 +6,7 @@ module Dynamoid #:nodoc:
     # chain to relation). It is a chainable object that builds up a query and eventually executes it either on an index
     # or by a full table scan.
     class Chain
-      attr_accessor :query, :source, :index, :values
+      attr_accessor :query, :source, :index, :values, :consistent_read
       include Enumerable
       
       # Create a new criteria chain.
@@ -15,6 +15,7 @@ module Dynamoid #:nodoc:
       def initialize(source)
         @query = {}
         @source = source
+        @consistent_read = false
       end
       
       # The workhorse method of the criteria chain. Each key in the passed in hash will become another criteria that the 
@@ -30,6 +31,11 @@ module Dynamoid #:nodoc:
       # @since 0.2.0
       def where(args)
         args.each {|k, v| query[k] = v}
+        self
+      end
+
+      def consistent
+        @consistent_read = true
         self
       end
       
@@ -53,6 +59,11 @@ module Dynamoid #:nodoc:
       def each(&block)
         records.each(&block)
       end
+
+      def options
+        { :consistent_read => consistent_read }
+      end
+
       
       private
       
@@ -75,7 +86,7 @@ module Dynamoid #:nodoc:
         ids = if index.range_key?
           Dynamoid::Adapter.query(index.table_name, index_query).collect{|r| r[:ids]}.inject(Set.new) {|set, result| set + result}
         else
-          results = Dynamoid::Adapter.read(index.table_name, index_query[:hash_value])
+          results = Dynamoid::Adapter.read(index.table_name, index_query[:hash_value], options)
           if results
             results[:ids]
           else
@@ -85,7 +96,7 @@ module Dynamoid #:nodoc:
         if ids.nil? || ids.empty?
           []
         else
-          Array(source.find(ids.to_a))
+          Array(source.find(ids.to_a, options))
         end
       end
       

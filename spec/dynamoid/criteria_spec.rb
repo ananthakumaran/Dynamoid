@@ -35,4 +35,9 @@ describe "Dynamoid::Criteria" do
     end
   end
 
+  it 'send consistent option to adapter' do
+    Dynamoid::Adapter.expects(:get_item).with { |table_name, key, options| options[:consistent_read] == true }
+    User.where(:name => 'x').consistent.first
+  end
+
 end
